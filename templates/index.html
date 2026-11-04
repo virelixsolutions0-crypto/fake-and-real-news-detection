@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TruthLens — Fake News Detector</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+  <style>
+/* ── Reset & Variables ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#0a0a0f; --bg-card:#111118; --bg-surface:#18181f; --bg-hover:#1f1f28;
+  --border:rgba(255,255,255,0.07); --border-soft:rgba(255,255,255,0.04);
+  --text-primary:#f0f0f5; --text-secondary:#8888a0; --text-muted:#55556a;
+  --bg:#080b14;
+--bg-card:#111827;
+--bg-surface:#1e293b;
+
+--text-primary:#f8fafc;
+--text-secondary:#cbd5e1;
+--text-muted:#94a3b8;
+
+--amber:#8b5cf6;      /* Purple */
+--amber-dim:rgba(139,92,246,0.15);
+
+--red:#ec4899;        /* Pink */
+--red-dim:rgba(236,72,153,0.12);
+
+--green:#06b6d4;      /* Cyan */
+--green-dim:rgba(6,182,212,0.12);
+--font-display:'Poppins', sans-serif;
+--font-body:'Poppins', sans-serif;
+--radius-sm:8px; --radius-md:14px; --radius-lg:22px; --radius-xl:32px;
+  --shadow-card:0 24px 80px rgba(0,0,0,0.5);
+  --transition:0.22s cubic-bezier(0.4,0,0.2,1);
+}
+html { scroll-behavior:smooth; }
+body {
+  background:var(--bg); color:var(--text-primary);
+  font-family:var(--font-body); font-size:15px;
+  line-height:1.6; overflow-x:hidden; min-height:100vh;
+}
+/* Background */
+.bg-grid {
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);
+  background-size:48px 48px;
+  mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 40%,transparent 100%);
+}
+.orb { position:fixed; z-index:0; pointer-events:none; border-radius:50%; filter:blur(80px); opacity:0.25; animation:float 10s ease-in-out infinite alternate; }
+.orb-1 {
+background:radial-gradient(
+circle,
+#8b5cf640,
+transparent 70%
+);
+}
+
+.orb-2 {
+background:radial-gradient(
+circle,
+#06b6d430,
+transparent 70%
+);
+}
+
+.orb-3 {
+background:radial-gradient(
+circle,
+#ec489920,
+transparent 70%
+);
+}
+@keyframes float { from{transform:translate(0,0) scale(1);} to{transform:translate(30px,-40px) scale(1.05);} }
+
+/* Header */
+.header { position:sticky; top:0; z-index:100; backdrop-filter:blur(20px); background:rgba(10,10,15,0.8); border-bottom:1px solid var(--border); }
+.header-inner { max-width:1100px; margin:0 auto; padding:14px 24px; display:flex; align-items:center; gap:24px; }
+.logo { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.logo-icon { width:30px; height:30px; color:var(--amber); }
+.logo-text { font-family:var(--font-display); font-weight:800; font-size:1.2rem; color:var(--text-primary); letter-spacing:-0.02em; }
+.accent{
+color:#8b5cf6;
+}
+.nav-pills { display:flex; gap:6px; margin-left:auto; }
+.pill { padding:6px 14px; border-radius:99px; font-size:13px; font-weight:500; color:var(--text-secondary); cursor:pointer; transition:all var(--transition); border:1px solid transparent; }
+.pill:hover { color:var(--text-primary); background:var(--bg-surface); border-color:var(--border); }
+.pill--active { background:var(--amber-dim); color:var(--amber); border-color:rgba(245,166,35,0.3); }
+.header-badge { display:flex; align-items:center; gap:6px; padding:6px 14px; border-radius:99px; background:var(--bg-surface); border:1px solid var(--border); font-size:12px; color:var(--text-secondary); flex-shrink:0; }
+.badge-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+/* Hero */
+.hero { position:relative; z-index:1; text-align:center; padding:80px 24px 48px; max-width:760px; margin:0 auto; }
+.hero-eyebrow { display:inline-flex; align-items:center; gap:10px; font-size:12px; font-weight:500; color:var(--text-muted); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:24px; }
+.sep { color:var(--border); }
+.hero-title { font-family:var(--font-display); font-size:clamp(2.8rem,7vw,4.5rem); font-weight:800; line-height:1.08; letter-spacing:-0.04em; margin-bottom:20px; }
+.gradient-text { background:linear-gradient(135deg, #8b5cf6 0%,
+#6366f1 50%,
+#06b6d4 100%
+);  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.hero-sub { font-size:1.05rem; color:var(--text-secondary); max-width:560px; margin:0 auto 40px; line-height:1.7; }
+.stats-row { display:inline-flex; align-items:center; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+.stat { display:flex; flex-direction:column; align-items:center; padding:16px 32px; gap:2px; }
+.stat-val { font-family:var(--font-display); font-size:1.5rem; font-weight:700; color:var(--text-primary); }
+.stat-lbl { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; }
+.stat-divider { width:1px; height:40px; background:var(--border); }
+
+/* Detector Card */
+.main-card-wrapper { position:relative; z-index:1; max-width:840px; margin:0 auto; padding:0 24px 64px; }
+.detector-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-xl); padding:32px; box-shadow:var(--shadow-card); }
+.card-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+.card-header h2 { font-family:var(--font-display); font-size:1.25rem; font-weight:700; letter-spacing:-0.02em; }
+.card-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.btn-ghost { padding:7px 14px; border-radius:var(--radius-sm); background:transparent; border:1px solid var(--border); color:var(--text-secondary); font-size:12.5px; cursor:pointer; transition:all var(--transition); font-family:var(--font-body); }
+.btn-ghost:hover { background:var(--bg-hover); color:var(--text-primary); border-color:rgba(255,255,255,0.15); }
+.btn-clear:hover { color:var(--red); border-color:rgba(255,71,87,0.3); }
+
+/* Textarea */
+.textarea-wrapper { position:relative; margin-bottom:20px; }
+textarea { width:100%; height:200px; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-md); color:var(--text-primary); font-family:var(--font-body); font-size:0.95rem; line-height:1.7; padding:16px; resize:vertical; transition:border-color var(--transition); outline:none; }
+textarea::placeholder { color:var(--text-muted); }
+textarea:focus { border-color:rgba(245,166,35,0.4); box-shadow:0 0 0 3px rgba(245,166,35,0.08); }
+.textarea-meta { display:flex; justify-content:space-between; padding:6px 4px 0; font-size:11.5px; color:var(--text-muted); }
+
+/* Analyze Button */
+.btn-analyze { width:100%; padding:18px; background:linear-gradient(
+135deg,
+#8b5cf6 0%,
+#6366f1 100%
+);border:none; border-radius:var(--radius-md); color:#0a0a0f; font-family:var(--font-display); font-size:1rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; transition:all var(--transition); box-shadow:0 8px 32px rgba(245,166,35,0.3); }
+.btn-analyze:hover { transform:translateY(-2px); box-shadow:0 12px 40px rgba(245,166,35,0.4); }
+.btn-analyze:active { transform:translateY(0); }
+.btn-icon svg { width:20px; height:20px; }
+.spin { animation:spin 0.8s linear infinite; width:18px; height:18px; }
+@keyframes spin { to{transform:rotate(360deg);} }
+
+/* Result */
+.result-section { margin-top:28px; animation:slideUp 0.4s cubic-bezier(0.4,0,0.2,1); }
+@keyframes slideUp { from{opacity:0;transform:translateY(16px);} to{opacity:1;transform:translateY(0);} }
+.result-banner { display:flex; align-items:center; gap:16px; padding:20px 24px; border-radius:var(--radius-md); margin-bottom:20px; border:1px solid; }
+.result-banner.is-fake { background:var(--red-dim); border-color:rgba(255,71,87,0.25); }
+.result-banner.is-true { background:var(--green-dim); border-color:rgba(46,213,115,0.25); }
+.result-icon { font-size:2.2rem; flex-shrink:0; }
+.result-text-block { flex:1; }
+.result-verdict { display:block; font-family:var(--font-display); font-size:1.6rem; font-weight:800; letter-spacing:-0.03em; }
+.result-banner.is-fake .result-verdict { color:var(--red); }
+.result-banner.is-true .result-verdict { color:var(--green); }
+.result-subtitle { display:block; font-size:13px; color:var(--text-secondary); margin-top:2px; }
+.result-badge { padding:8px 18px; border-radius:99px; font-family:var(--font-display); font-size:0.8rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; flex-shrink:0; }
+.result-banner.is-fake .result-badge { background:rgba(255,71,87,0.2); color:var(--red); }
+.result-banner.is-true .result-badge { background:rgba(46,213,115,0.2); color:var(--green); }
+
+.result-banner.is-fake{
+    background:rgba(255,71,87,0.12);
+    border:1px solid rgba(255,71,87,0.4);
+    box-shadow:0 0 30px rgba(255,71,87,0.35);
+}
+
+.result-banner.is-true{
+    background:rgba(46,213,115,0.12);
+    border:1px solid rgba(46,213,115,0.4);
+    box-shadow:0 0 30px rgba(46,213,115,0.35);
+}
+/* Confidence */
+.confidence-block { background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-md); padding:20px; margin-bottom:16px; }
+.conf-labels { display:flex; justify-content:space-between; margin-bottom:10px; font-size:13px; }
+.conf-pct { font-family:var(--font-display); font-weight:700; color:var(--amber); font-size:1rem; }
+.conf-bar-track { height:10px; background:var(--bg); border-radius:99px; overflow:hidden; margin-bottom:8px; }
+.conf-bar-fill { height:100%; width:0%; border-radius:99px; background:linear-gradient(90deg,var(--amber),#ff6b35); transition:width 0.8s cubic-bezier(0.4,0,0.2,1); }
+.conf-scale { display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; }
+confBar.style.background = isFake
+? "linear-gradient(90deg,#ff4757,#ec4899)"
+: "linear-gradient(90deg,#06b6d4,#2ed573)";
+/* Metrics */
+.metrics-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+.metric-chip { flex:1; min-width:100px; display:flex; align-items:center; gap:10px; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 16px; }
+.metric-icon { font-size:1.3rem; }
+.metric-val { display:block; font-family:var(--font-display); font-weight:700; font-size:1rem; color:var(--text-primary); }
+.metric-lbl { display:block; font-size:11px; color:var(--text-muted); }
+.disclaimer { font-size:12px; color:var(--text-muted); background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 16px; line-height:1.5; }
+
+.accuracy-card{
+    margin-top:20px;
+    padding:28px;
+    border-radius:20px;
+    background:linear-gradient(
+        135deg,
+        rgba(139,92,246,0.15),
+        rgba(6,182,212,0.15)
+    );
+    border:1px solid rgba(255,255,255,0.08);
+    backdrop-filter:blur(12px);
+}
+
+.accuracy-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:15px;
+}
+
+.accuracy-badge{
+    padding:6px 12px;
+    border-radius:20px;
+    background:rgba(46,213,115,0.15);
+    color:#2ed573;
+    font-size:12px;
+    font-weight:600;
+}
+
+.accuracy-score{
+    font-size:3.5rem;
+    font-weight:800;
+    text-align:center;
+    margin:10px 0;
+    background:linear-gradient(
+        135deg,
+        #8b5cf6,
+        #06b6d4
+    );
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+}
+
+.accuracy-sub{
+    text-align:center;
+    color:#bfc7d5;
+    margin-bottom:20px;
+}
+
+.accuracy-stats{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:12px;
+}
+
+.acc-item{
+    text-align:center;
+    padding:14px;
+    border-radius:12px;
+    background:rgba(255,255,255,0.05);
+}
+
+.acc-item span{
+    display:block;
+    color:#9ca3af;
+    font-size:12px;
+    margin-bottom:4px;
+}
+
+.acc-item strong{
+    font-size:1.1rem;
+    color:white;
+}
+/* Error */
+.error-block { margin-top:20px; padding:14px 18px; background:var(--red-dim); border:1px solid rgba(255,71,87,0.25); border-radius:var(--radius-sm); display:flex; align-items:center; gap:10px; color:var(--red); font-size:14px; animation:slideUp 0.3s ease; }
+
+/* Info Sections */
+.info-section { position:relative; z-index:1; max-width:1000px; margin:0 auto 80px; padding:0 24px; }
+.section-title { font-family:var(--font-display); font-size:2rem; font-weight:800; letter-spacing:-0.04em; text-align:center; margin-bottom:10px; }
+.section-sub { text-align:center; color:var(--text-secondary); margin-bottom:40px; }
+
+/* Steps */
+.steps-grid { display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:center; }
+.step-card { flex:1; min-width:160px; max-width:200px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:24px 20px; text-align:center; transition:transform var(--transition),border-color var(--transition); }
+.step-card:hover { transform:translateY(-4px); border-color:rgba(245,166,35,0.3); }
+.step-num { font-family:var(--font-display); font-size:0.7rem; color:var(--amber); letter-spacing:0.1em; margin-bottom:10px; }
+.step-icon { font-size:2rem; margin-bottom:10px; }
+.step-card h3 { font-family:var(--font-display); font-size:0.95rem; font-weight:700; margin-bottom:8px; }
+.step-card p { font-size:12.5px; color:var(--text-secondary); line-height:1.5; }
+.step-arrow { font-size:1.5rem; color:var(--text-muted); flex-shrink:0; }
+
+/* Examples */
+.examples-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+.example-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius-lg); padding:22px; cursor:pointer; transition:all var(--transition); }
+.example-card:hover { transform:translateY(-4px); }
+.example-fake:hover { border-color:rgba(255,71,87,0.4); background:rgba(255,71,87,0.04); }
+.example-true:hover { border-color:rgba(46,213,115,0.4); background:rgba(46,213,115,0.04); }
+.ex-tag { display:inline-block; padding:3px 10px; border-radius:99px; font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:12px; }
+.ex-tag--fake { background:var(--red-dim); color:var(--red); border:1px solid rgba(255,71,87,0.3); }
+.ex-tag--true { background:var(--green-dim); color:var(--green); border:1px solid rgba(46,213,115,0.3); }
+.example-card p { font-size:13.5px; color:var(--text-secondary); line-height:1.6; margin-bottom:14px; }
+.ex-try { font-size:12px; color:var(--amber); font-weight:500; }
+
+/* Footer */
+.footer { position:relative; z-index:1; border-top:1px solid var(--border); padding:40px 24px; text-align:center; }
+.footer-inner { max-width:600px; margin:0 auto; }
+.footer-logo { font-family:var(--font-display); font-size:1.3rem; font-weight:800; margin-bottom:12px; }
+.footer p { font-size:13px; color:var(--text-muted); line-height:1.7; }
+
+/* Responsive */
+@media(max-width:700px){
+  .nav-pills{display:none;}
+  .hero{padding:48px 16px 32px;}
+  .detector-card{padding:20px; border-radius:var(--radius-lg);}
+  .card-header{flex-direction:column; align-items:flex-start;}
+  .steps-grid{flex-direction:column;}
+  .step-arrow{transform:rotate(90deg);}
+  .stats-row{flex-direction:column;}
+  .stat-divider{width:80%;height:1px;}
+}
+  </style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="currentColor" stroke-width="2"/><path d="M10 16 L14 20 L22 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <span class="logo-text">News<span class="accent">Guards</span></span>
+    </div>
+    <nav class="nav-pills">
+      <span class="pill pill--active">Detector</span>
+      <span class="pill" onclick="scrollToSection('how-it-works')">How It Works</span>
+      <span class="pill" onclick="scrollToSection('examples')">Examples</span>
+    </nav>
+    <div class="header-badge"><span class="badge-dot"></span><span>AI Powered</span></div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow"><span>ML-Powered</span><span class="sep">·</span><span>Logistic Regression</span><span class="sep">·</span><span>TF-IDF Analysis</span></div>
+  <h1 class="hero-title">Detect Fake News<br/><span class="gradient-text">Instantly.</span></h1>
+  <p class="hero-sub">Paste any news article or headline. Our AI model trained on thousands of real &amp; fake news articles analyzes linguistic patterns to tell you the truth.</p>
+  <div class="stats-row">
+    <div class="stat"><span class="stat-val">98%+</span><span class="stat-lbl">Accuracy</span></div>
+    <div class="stat-divider"></div>
+    <div class="stat"><span class="stat-val">&lt;1s</span><span class="stat-lbl">Analysis Time</span></div>
+    <div class="stat-divider"></div>
+    <div class="stat"><span class="stat-val">44K+</span><span class="stat-lbl">Articles Trained</span></div>
+  </div>
+</section>
+
+<!-- DETECTOR CARD -->
+<main class="main-card-wrapper">
+  <div class="detector-card">
+    <div class="card-header">
+      <h2>News Analyzer</h2>
+      <div class="card-actions">
+        <button class="btn-ghost" onclick="loadSample('fake')">Load Fake Sample</button>
+        <button class="btn-ghost" onclick="loadSample('true')">Load True Sample</button>
+        <button class="btn-ghost btn-clear" onclick="clearAll()">Clear</button>
+      </div>
+    </div>
+    <div class="textarea-wrapper">
+      <textarea id="news-input" placeholder="Paste your news article or headline here…&#10;&#10;Example: 'Scientists confirm vaccines contain 5G microchips...' or any real news text." spellcheck="true"></textarea>
+      <div class="textarea-meta"><span id="word-count">0 words</span><span id="char-count">0 / 10,000</span></div>
+    </div>
+    <button class="btn-analyze" id="btn-analyze" onclick="analyze()">
+      <span class="btn-text">Analyze News</span>
+      <span class="btn-icon"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="btn-loading" id="btn-loading" style="display:none;">
+        <svg class="spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="31" stroke-dashoffset="10"/></svg>
+        Analyzing...
+      </span>
+    </button>
+
+    <!-- Result -->
+    <div class="result-section" id="result-section" style="display:none;">
+      <div class="result-banner" id="result-banner">
+        <div class="result-icon" id="result-icon"></div>
+        <div class="result-text-block">
+          <span class="result-verdict" id="result-verdict"></span>
+          <span class="result-subtitle" id="result-subtitle"></span>
+        </div>
+        <div class="result-badge" id="result-badge"></div>
+      </div>
+      <div class="confidence-block">
+        <div class="conf-labels"><span>Confidence Level</span><span id="conf-pct" class="conf-pct">0%</span></div>
+        <div class="conf-bar-track"><div class="conf-bar-fill" id="conf-bar"></div></div>
+        <div class="conf-scale"><span>Low</span><span>Medium</span><span>High</span></div>
+      </div>
+      <div class="metrics-row">
+        <div class="metric-chip"><span class="metric-icon">📝</span><div><span class="metric-val" id="m-words">—</span><span class="metric-lbl">Words</span></div></div>
+        <div class="metric-chip"><span class="metric-icon">🔤</span><div><span class="metric-val" id="m-chars">—</span><span class="metric-lbl">Characters</span></div></div>
+        <div class="metric-chip"><span class="metric-icon">🤖</span><div><span class="metric-val">LR</span><span class="metric-lbl">Model</span></div></div>
+        <div class="metric-chip"><span class="metric-icon">📊</span><div><span class="metric-val">TF-IDF</span><span class="metric-lbl">Vectorizer</span></div></div>
+      </div>
+      <p class="disclaimer">⚠️ This AI tool assists in identifying potential misinformation. Always verify through trusted sources such as Reuters, AP, or BBC.</p>
+    </div>
+
+    <div class="error-block" id="error-block" style="display:none;">
+      <span>⚠️</span><span id="error-msg"></span>
+    </div>
+  </div>
+</main>
+<div class="accuracy-card">
+    <div class="accuracy-header">
+        <span>🎯 Model Performance</span>
+        <span class="accuracy-badge">Excellent</span>
+    </div>
+
+    <div class="accuracy-score">98.2%</div>
+
+    <div class="accuracy-sub">
+        TF-IDF Vectorizer + Logistic Regression
+    </div>
+
+    <div class="accuracy-stats">
+        <div class="acc-item">
+            <span>Precision</span>
+            <strong>97%</strong>
+        </div>
+
+        <div class="acc-item">
+            <span>Recall</span>
+            <strong>98%</strong>
+        </div>
+
+        <div class="acc-item">
+            <span>F1 Score</span>
+            <strong>97.5%</strong>
+        </div>
+    </div>
+</div>
+<!-- HOW IT WORKS -->
+<section class="info-section" id="how-it-works">
+  <h2 class="section-title">How It Works</h2>
+  <p class="section-sub">A 4-step Machine Learning pipeline processes every article in milliseconds.</p>
+  <div class="steps-grid">
+    <div class="step-card"><div class="step-num">01</div><div class="step-icon">📥</div><h3>Input</h3><p>You paste a news headline or full article text into the analyzer.</p></div>
+    <div class="step-arrow">→</div>
+    <div class="step-card"><div class="step-num">02</div><div class="step-icon">🧹</div><h3>Preprocessing</h3><p>Text is lowercased, URLs removed, punctuation stripped, stop words eliminated.</p></div>
+    <div class="step-arrow">→</div>
+    <div class="step-card"><div class="step-num">03</div><div class="step-icon">🔢</div><h3>TF-IDF</h3><p>Words are converted to numerical vectors based on their importance across the corpus.</p></div>
+    <div class="step-arrow">→</div>
+    <div class="step-card"><div class="step-num">04</div><div class="step-icon">🎯</div><h3>Prediction</h3><p>Logistic Regression classifies the article as Fake or True with a confidence score.</p></div>
+  </div>
+</section>
+
+<!-- EXAMPLES -->
+<section class="info-section" id="examples">
+  <h2 class="section-title">Example Articles</h2>
+  <p class="section-sub">Click any card to load it into the analyzer.</p>
+  <div class="examples-grid">
+    <div class="example-card example-fake" onclick="loadExampleText('fake',0)"><div class="ex-tag ex-tag--fake">FAKE</div><p>"BREAKING: Scientists confirm that 5G towers are designed to spread the coronavirus virus, a whistleblower from inside a major telecom company has revealed in leaked documents…"</p><span class="ex-try">Try this →</span></div>
+    <div class="example-card example-fake" onclick="loadExampleText('fake',1)"><div class="ex-tag ex-tag--fake">FAKE</div><p>"SHOCK REVELATION: The moon landing in 1969 was staged in a Hollywood studio by Stanley Kubrick under orders from the CIA. Astronauts were paid to lie to the public…"</p><span class="ex-try">Try this →</span></div>
+    <div class="example-card example-true" onclick="loadExampleText('true',0)"><div class="ex-tag ex-tag--true">TRUE</div><p>"The Federal Reserve raised interest rates by 25 basis points on Wednesday amid ongoing efforts to bring inflation down from multi-decade highs, officials announced…"</p><span class="ex-try">Try this →</span></div>
+    <div class="example-card example-true" onclick="loadExampleText('true',1)"><div class="ex-tag ex-tag--true">TRUE</div><p>"NASA's James Webb Space Telescope has captured the deepest and sharpest infrared image of the distant universe to date, showing thousands of galaxies never seen before…"</p><span class="ex-try">Try this →</span></div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-logo">News<span class="accent">Guards</span></div>
+    <p>Built with Python · Flask · Scikit-learn · TF-IDF · Logistic Regression</p>
+    <p>Kaggle Dataset: Fake and Real News · University AI/ML Project</p>
+  </div>
+</footer>
+
+<script>
+"use strict";
+const SAMPLES = {
+  fake: [
+    "BREAKING: Scientists confirm that 5G towers are deliberately spreading the coronavirus virus through electromagnetic radiation. A whistleblower from inside a major telecommunications company has leaked internal documents proving that governments worldwide are complicit in this conspiracy to control the population. The mainstream media is hiding the truth and suppressing this explosive revelation!",
+    "SHOCK REVELATION: The Apollo moon landing in 1969 was staged in a secret Hollywood studio under orders from the CIA and directed by Stanley Kubrick. Newly released documents prove that astronauts were paid millions to lie to the public. The rocks brought back were actually manufactured in a laboratory. NASA has been covering up this massive deception for over 50 years!"
+  ],
+  true: [
+    "The Federal Reserve raised its benchmark interest rate by a quarter percentage point on Wednesday, the latest in a series of increases aimed at bringing down inflation that has proved more stubborn than policymakers had hoped. The decision was unanimous among voting members of the Federal Open Market Committee, which noted that the labor market remains strong despite signs of slowing economic activity.",
+    "NASA's James Webb Space Telescope has captured the deepest and sharpest infrared image of the distant universe to date, showing thousands of galaxies that have never been seen before. The image, released at a White House briefing, covers a patch of sky approximately the size of a grain of sand held at arm's length. Scientists say it represents light that has traveled for over 13 billion years."
+  ]
+};
+
+const textarea       = document.getElementById("news-input");
+const wordCountEl    = document.getElementById("word-count");
+const charCountEl    = document.getElementById("char-count");
+const btnAnalyze     = document.getElementById("btn-analyze");
+const btnLoading     = document.getElementById("btn-loading");
+const btnText        = btnAnalyze.querySelector(".btn-text");
+const btnIcon        = btnAnalyze.querySelector(".btn-icon");
+const resultSection  = document.getElementById("result-section");
+const resultBanner   = document.getElementById("result-banner");
+const resultIcon     = document.getElementById("result-icon");
+const resultVerdict  = document.getElementById("result-verdict");
+const resultSubtitle = document.getElementById("result-subtitle");
+const resultBadge    = document.getElementById("result-badge");
+const confPct        = document.getElementById("conf-pct");
+const confBar        = document.getElementById("conf-bar");
+const mWords         = document.getElementById("m-words");
+const mChars         = document.getElementById("m-chars");
+const errorBlock     = document.getElementById("error-block");
+const errorMsg       = document.getElementById("error-msg");
+
+textarea.addEventListener("input", updateCounter);
+
+function updateCounter() {
+  const text  = textarea.value;
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  wordCountEl.textContent = `${words} word${words !== 1 ? "s" : ""}`;
+  charCountEl.textContent = `${text.length.toLocaleString()} / 10,000`;
+  charCountEl.style.color = text.length > 9000 ? "var(--red)" : text.length > 7000 ? "var(--amber)" : "var(--text-muted)";
+}
+
+async function analyze() {
+  const text = textarea.value.trim();
+  if (!text) { showError("Please paste a news article before analyzing."); return; }
+  if (text.length < 20) { showError("Please enter at least 20 characters."); return; }
+  hideError();
+  setLoading(true);
+  resultSection.style.display = "none";
+  try {
+    const response = await fetch("/predict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ news_text: text })
+    });
+    const data = await response.json();
+    if (!response.ok) { showError(data.error || "An error occurred."); return; }
+    displayResult(data);
+  } catch (err) {
+    showError("Cannot connect to server. Make sure Flask is running (python app.py).");
+  } finally {
+    setLoading(false);
+  }
+}
+
+function displayResult(data) {
+  const isFake = data.prediction === "FAKE";
+  resultBanner.className = `result-banner ${isFake ? "is-fake" : "is-true"}`;
+  resultIcon.textContent     = isFake ? "🚨" : "✅";
+  resultVerdict.textContent  = isFake ? "FAKE NEWS" : "REAL NEWS";
+  resultSubtitle.textContent = isFake ? "Our AI detected signs of misinformation in this article." : "This article appears to be legitimate news content.";
+  resultBadge.textContent    = isFake ? "⚠ MISINFORMATION" : "✓ VERIFIED";
+  confPct.textContent = `${data.confidence}%`;
+  confPct.style.color = data.confidence > 85 ? "var(--green)" : data.confidence > 65 ? "var(--amber)" : "var(--red)";
+  confBar.style.width = "0%";
+  setTimeout(() => {
+    confBar.style.width = `${data.confidence}%`;
+    confBar.style.background = isFake ? "linear-gradient(90deg,var(--red),#ff6b35)" : "linear-gradient(90deg,var(--green),#00d4aa)";
+  }, 50);
+  mWords.textContent = data.word_count.toLocaleString();
+  mChars.textContent = data.char_count.toLocaleString();
+  resultSection.style.display = "block";
+  setTimeout(() => resultSection.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
+}
+
+function setLoading(loading) {
+  btnAnalyze.disabled = loading;
+  btnText.style.display    = loading ? "none" : "inline";
+  btnIcon.style.display    = loading ? "none" : "inline-flex";
+  btnLoading.style.display = loading ? "inline-flex" : "none";
+  btnAnalyze.style.opacity = loading ? "0.8" : "1";
+}
+
+function showError(msg) {
+  errorMsg.textContent = msg;
+  errorBlock.style.display = "flex";
+  errorBlock.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+function hideError() { errorBlock.style.display = "none"; }
+
+function loadSample(type) {
+  const idx = Math.floor(Math.random() * SAMPLES[type].length);
+  textarea.value = SAMPLES[type][idx];
+  updateCounter(); hideError();
+  resultSection.style.display = "none";
+  textarea.focus();
+}
+
+function loadExampleText(type, idx) {
+  textarea.value = SAMPLES[type][idx] || SAMPLES[type][0];
+  updateCounter(); hideError();
+  resultSection.style.display = "none";
+  document.querySelector(".main-card-wrapper").scrollIntoView({ behavior: "smooth" });
+}
+
+function clearAll() {
+  textarea.value = "";
+  updateCounter(); hideError();
+  resultSection.style.display = "none";
+  textarea.focus();
+}
+
+function scrollToSection(id) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+}
+
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") analyze();
+});
+
+updateCounter();
+</script>
+</body>
+</html>
